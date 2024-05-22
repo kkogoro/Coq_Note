@@ -59,7 +59,7 @@ $$
 (\lambda x.t_{12}) t_2 \rightarrow [x\mapsto t_2] t_{12}
 $$
 
-含义是把$t_2$作为参数传给$(\lambda x.t_{12})$ ，函数做的事情是把函数体 $t_{12}$ 中的 x 都替换成 $t_2$
+含义是把 $t_2$ 作为参数传给 $(\lambda x.t_{12})$ ，函数做的事情是把函数体 $t_{12}$ 中的 x 都替换成 $t_2$
 
 ### Church Boolean
 
@@ -68,10 +68,76 @@ tru = \lambda t. \lambda f.t\\
 fls = \lambda f. \lambda t.f
 $$
 
-含义是传入两个constructor `t` 和 `f` ，返回语义的constructor
+含义是传入两个constructor `t` 和 `f` 分别代表true 和 false ，返回对应的的constructor
 
 函数举例
 
 $$
+test = \lambda I. \lambda m. \lambda n. \space I \space m \space n
+$$
+
+$I$ 是bool，m n分别对应true和false时执行的语句
+
+先读入三个constructor I、m、n，然后将m n传作I的参数
+
+例如，当I是true时，得到的是
 
 $$
+test = [t \mapsto m, f \mapsto n] t\\
+= m
+$$
+
+类似的，可以定义and
+
+$$
+\lambda a.\lambda b. \space a \space b \space fls
+$$
+
+### Church number
+
+自然数：
+
+$$
+c_0 = \lambda s. \lambda z. z\\
+c_4 = \lambda s. \lambda z. s \space (s (s (s (z))))
+$$
+
+定义函数
+
+$$
+\begin{align*}
+succ &= \lambda n .\lambda s .\lambda z . s\space  (n \space s \space z) \\
+
+plus &= \lambda n . \lambda m. \lambda s . \lambda z . \space n \space s \space (m \space s \space z) \\
+
+times &= \lambda m. \lambda n. \space m \space (plus\space n) \space c0
+\end{align*}
+$$
+
+其中n为自然数
+
+运算过程，以times为例
+
+$$
+\begin{align*}
+times \space c1 \space c2
+ &=\lambda m. \lambda n. (\space m \space (plus\space n) \space c0) \space c1 \space c2 \\&=
+ c1\space (plus \space c2) \space c0\\&=
+    (\lambda s. \lambda z. s\space z)\space (plus \space c2) \space c0\\&=
+    (plus \space c2) (c0)\\&=
+    (\lambda n . \lambda m. \lambda s . \lambda z . \space n \space s (m \space s \space z)) \space c2 \space c0\\&=
+\lambda s . \lambda z . (c2\space  s(c0 \space s\space  z)) \\&=
+\lambda s . \lambda z . (c2\space  s\space z)\\&=
+\lambda s.\lambda z . s(s(z))
+\end{align*}
+$$
+
+### Y Combinator
+
+$$
+Y = \lambda f.(\lambda x. f(x\space x)) (\lambda x.f(x\space x))
+$$
+
+作用是
+
+Y f = f (Y f)
