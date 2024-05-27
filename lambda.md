@@ -64,7 +64,10 @@ $$
 ### Church Boolean
 
 $$
-tru = \lambda t. \lambda f.t\\
+tru = \lambda t. \lambda f.t
+$$
+
+$$
 fls = \lambda f. \lambda t.f
 $$
 
