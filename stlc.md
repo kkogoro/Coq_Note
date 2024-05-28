@@ -13,6 +13,8 @@
            | if t then t else t        (conditional)
 ```
 
+注意abstraction就是函数，An abstraction $\lambda x.t$ denotes an anonymous function that takes a single input x and returns t
+
 `\x:T,t`就是 $\lambda x.t$
 
 和lambda部分的lambda calculus规则基本一致
@@ -82,6 +84,8 @@ Hint Unfold y : core.
 Hint Unfold z : core.
 ```
 
+值得注意的是`S -> T`右结合，`x y`(app，指的是任何可能的结合，比如函数和函数，函数和参数) 左结合，`\x : t , y` 左结合
+
 没有类型推导，所以必须标明参数类型T
 
 `\x:T,t`
@@ -136,8 +140,6 @@ Having made the choice not to reduce under abstractions, we don't need to worry 
 
 变量作用域问题：注意 `[x:=true] (\x:Bool, x)` 并不代表着`(\x:Bool,true)` ，因为函数内的x是新变量，在这里替换规则直接失效，但如果是另一个变量y，则会继续在函数体内替换。
 
-这也是不能轻松做alpha renaming的原因
-
 ```coq
 (** Here is the definition, informally...
 
@@ -177,13 +179,96 @@ Fixpoint subst (x : string) (s : tm) (t : tm) : tm :=
 where "'[' x ':=' s ']' t" := (subst x s t) (in custom stlc).
 ```
 
-别忘了`destruct (eqb_spec  x s0) as [H1 | H2].`的用法
+别忘了`destruct (eqb_spec  x s0) as [H1 | H2].`的用法：
+对于 `(x =? s0)%string` 可以直接得到 `x = s0` 和 `(x =? s0)%string=true` 两个命题（或 false的情形）
+
+给出step的关系定义法：
+
+```coq
+Inductive substi (s : tm) (x : string) : tm -> tm -> Prop :=
+  | s_var1 :
+      substi s x (tm_var x) s
+  | s_var2 :
+      forall y, x <> y -> substi s x (tm_var y) y
+  | s_app1 :
+      forall T t1, substi s x (<{\x:T, t1}>) (<{\x:T, t1}>)
+  | s_app2 :
+      forall y T t1, x <> y -> substi s x (<{\y:T, t1}>) (<{\y:T, [x:=s] t1}>)
+  | s_tt :
+      forall t1 t2, substi s x (<{t1 t2}>) ( <{([x:=s] t1) ([x:=s] t2)}>)
+  | s_T :
+      substi s x <{true}> <{true}>
+  | S_F :
+      substi s x <{false}> <{false}>
+  | S_if :
+      forall t1 t2 t3, substi s x <{if t1 then t2 else t3}>  <{if ([x:=s] t1) then ([x:=s] t2) else ([x:=s] t3)}>
+.
+```
+
+证明关系和函数的等价性
+
+```coq
+Theorem substi_correct : forall s x t t',
+  <{ [x:=s]t }> = t' <-> substi s x t t'.
+Proof.
+  intros s x t t'.
+  split.
+  - intros H.
+    destruct t.
+    + inversion H.
+      destruct (x =? s0)%string eqn:E.
+      * apply eqb_eq in E.
+        rewrite E.
+         simpl. rewrite eqb_refl.
+         auto.
+      * simpl.
+        rewrite E.
+        apply s_var2.
+        apply eqb_neq.
+        assumption.
+    + rewrite <- H.
+      auto.
+    + rewrite <- H.
+      (*可以用eqb_spec做得更简单！
+      destruct (eqb_spec  x s0) as [H1 | H2].
+      * rewrite H1. simpl. rewrite eqb_refl.
+        auto.*)
+      destruct (x =? s0)%string eqn:E.
+      * simpl.
+        rewrite E.
+        apply eqb_eq in E.
+        rewrite E.
+        auto.
+      * simpl. 
+        rewrite E.
+        apply s_app2.
+        apply eqb_neq in E.
+        assumption.
+    + rewrite <- H.
+      auto.
+    + rewrite <- H.
+      auto.
+    + rewrite <- H.
+      auto.
+- apply substi_correctR.
+Qed.  
+
+Theorem substi_correctR : forall s x t t',
+  substi s x t t' -> <{ [x:=s]t }> = t' .
+Proof.
+  intros.
+  inversion H; subst; clear H;
+  try (simpl; rewrite eqb_refl; reflexivity);
+  try (simpl; apply eqb_neq in H0; rewrite H0; reflexivity);
+  reflexivity.
+Qed.
+```
 
 ### reduction
 
 beta reduction
 
-先化简函数体，再化简参数
+先化简左侧（app是左结合的，(((()))) t2），再化简右侧
 
 ```coq
 value v2
@@ -259,6 +344,58 @@ Notation "t1 '-->*' t2" := (multistep t1 t2) (at level 40).
 (*这个不是value，因为不是函数而是函数调用*)
 ```
 
+### alpha renaming
+
+先思考如下app的推导:
+
+```coq
+(*可能引起误解的推导*)
+(\x, (\y, x)) y
+= [x := y] (\y x)
+= (\y y)
+(*看似得到了一个ID函数，但实际上这两个y不是同一个y，根据alpha renaming，我们的(\x, (\y, x))应该等价于(\x, (\z, x))，所以要想看到真实语义，需要让每个不同的变量名都彼此区分*)
+(*正确的语义*)
+(\x, (\z, x)) y
+= [x := y] (\z x)
+= (\z y)
+```
+
+再考虑，如果不把化简完成的函数体看成value，而是允许继续推导： 即 去掉v_abs，并加入规则
+
+```coq
+t1 -> t1'
+----------------------------------
+(\x : T, t1) -> (\x : T, t1')
+```
+
+就会出现不符合lambda calculus alpha renaming语义的问题：
+
+比如
+
+```coq
+f := \y:Bool, ((\x:Bool, (\y:Bool, x)) y)
+
+(*正确的推导应该是*)
+
+forall z, f z = \y:Bool, ((\x:Bool, (\y:Bool, x)) y) z
+              = (\x:Bool, (\y:Bool, x)) z
+              = (\y:Bool, z)
+
+(*therefore,*)
+f = \z:Bool (\y:Bool,z)
+
+(*但如果允许化简函数体，直接对函数体执行字符串替换，就会变成*)
+f := \y:Bool, ((\x:Bool, (\y:Bool, x)) y)
+   =(*化简函数体*) \y:Bool, ([x := y](\y:Bool, x))
+   =(*作用域*) \y:Bool, (\y:Bool, y) 
+   (*这里在coq的语义下就出问题了，这几个y会被coq看作同一个y，但是根据alpha renaming 实际上应该等价于\y:Bool, (\z:Bool, y) *)
+(*这里按照app语义，其实等价于*) 
+   = \z:Bool, (\y:Bool, y)
+
+(*仔细对比，会发现符合lambda calculus的语义是返回第一个参数，而错误定义出的是返回第二个参数*)
+
+```
+
 ### typing
 
 引入上下文系统Gamma来记录变量与类型的对应关系map
@@ -279,7 +416,7 @@ Definition context := partial_map ty.
                           ------------------                             (T_Var)
                           Gamma |-- x \in T1
 
-                      x |-> T2 ; Gamma |-- t1 \in T1
+                      (x |-> T2 ; Gamma) |-- t1 \in T1
                       ------------------------------                     (T_Abs)
                        Gamma |-- \x:T2,t1 \in T2->T1
 
@@ -302,29 +439,35 @@ Definition context := partial_map ty.
     "under the assumptions in Gamma, the term [t] has the type [T]." *)
 ```
 
+这里只有`=`是读取map，`|--`是指推导出
+
 ```coq
-Inductive has_type : context → tm → ty → Prop :=
-  | T_Var : ∀ Gamma x T1,
-      Gamma x = Some T1 →
+
+Reserved Notation "Gamma '|--' t '\in' T"
+            (at level 101,
+             t custom stlc, T custom stlc at level 0).
+Inductive has_type : context -> tm -> ty -> Prop :=
+  | T_Var : forall Gamma x T1,
+      Gamma x = Some T1 ->
       Gamma |-- x \in T1
-  | T_Abs : ∀ Gamma x T1 T2 t1,
-      x ⊢> T2 ; Gamma |-- t1 \in T1 →
-      Gamma |-- \x:T2, t1 \in (T2 → T1)
-  | T_App : ∀ T1 T2 Gamma t1 t2,
-      Gamma |-- t1 \in (T2 → T1) →
-      Gamma |-- t2 \in T2 →
+  | T_Abs : forall Gamma x T1 T2 t1,
+      x |-> T2 ; Gamma |-- t1 \in T1 -> (*这么写是因为有可能t1 = x*)
+      Gamma |-- \x:T2, t1 \in (T2 -> T1)
+  | T_App : forall T1 T2 Gamma t1 t2,
+      Gamma |-- t1 \in (T2 -> T1) ->
+      Gamma |-- t2 \in T2 ->
       Gamma |-- t1 t2 \in T1
-  | T_True : ∀ Gamma,
+  | T_True : forall Gamma,
        Gamma |-- true \in Bool
-  | T_False : ∀ Gamma,
+  | T_False : forall Gamma,
        Gamma |-- false \in Bool
-  | T_If : ∀ t1 t2 t3 T1 Gamma,
-       Gamma |-- t1 \in Bool →
-       Gamma |-- t2 \in T1 →
-       Gamma |-- t3 \in T1 →
+  | T_If : forall t1 t2 t3 T1 Gamma,
+       Gamma |-- t1 \in Bool ->
+       Gamma |-- t2 \in T1 ->
+       Gamma |-- t3 \in T1 ->
        Gamma |-- if t1 then t2 else t3 \in T1
 
-where "Gamma '|--' t '∈' T" := (has_type Gamma t T).
+where "Gamma '|--' t '\in' T" := (has_type Gamma t T).
 Hint Constructors has_type : core.
 ```
 
@@ -339,3 +482,20 @@ Proof.
 Qed.
 ```
 
+`\x:Bool, \y:Bool, (x y)` 的结合性是`\x:Bool,  (\y : Bool, (x y))`
+
+等价于`\x:Bool, \y:Bool, x y` ，不要管括号
+
+
+```coq
+assert (HT: forall T1 T2, ~(T2 = <{T2 -> T1}>)).
+  { intros T1 T2 contra.
+    generalize dependent T1.
+    induction T2.
+    - discriminate.
+    - intros T1 H.
+      inversion H.
+      apply IHT2_1 in H1.
+      destruct H1.
+  }
+```

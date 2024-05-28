@@ -1,5 +1,14 @@
 # map
 
+## def
+
+```coq
+Definition total_map (A : Type) := string -> A.
+Definition partial_map (A : Type) := total_map (option A).
+```
+
+partial_map就是把string映射到Some A
+
 ## Locate
 
 用于确定都在哪里定义了notation
