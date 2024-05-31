@@ -168,6 +168,10 @@ Qed.
 
 不断调用inversion和subst的Ltac
 
+`solve[A|B|C]`会依次尝试执行A B C策略，直到其中一个成功，如果都没成功就不执行。
+
+详见`typechecking.md`
+
 ```coq
 Ltac solve_by_inverts n :=
   match goal with | H : ?T |- _ =>

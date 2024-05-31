@@ -142,6 +142,8 @@ Qed.
 
 替换引理：已知term t中有自由变量x，若我们给出x的类型为U的先验知识就能推出t的类型是T，那么对于任意无自由变量且类型为U的term v，我们将t中的每个x替换为v，仍然能推出t的类型是T
 
+注意这里需要在空的上下文推出v的类型，因为v是value
+
 ```coq
 Lemma substitution_preserves_typing : forall Gamma x U t v T,
   x |-> U ; Gamma |-- t \in T ->

@@ -167,7 +167,9 @@ l r代表的是后面跟着的这个元素的类型是在Sums类型的左侧还�
 
 而为了把`inl Unit n`中的`n`取出来，我们需要实现类似Haskell中monad的东西，这里的实现方法是类似Rust的pattern match
 
-注意，这个语法是`case ... of inl ... => ... | inr ... => ...`，这里的inl和inr是case语法的一部分而不是constructor！！！
+注意，这个语法是`case ... of | inl ... => ... | inr ... => ...`，这里的inl和inr是case语法的一部分而不是constructor！！！
+
+在coq中有两个`|`
 
 ```coq
 (*这事Nat+Bool的例子*)
@@ -250,6 +252,10 @@ x2是t2的自由变量
 ## List
 
 为了避开多态，这里我们要在nil里传入T，同时我们用pattern match代替head和tail
+
+注意在Coq中`cons t1 t2`的语法糖写作`t1::t2`
+
+去糖应该是`tm_cons t1 t2`
 
 ### 语法
 
