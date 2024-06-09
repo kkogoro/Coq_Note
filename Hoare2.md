@@ -499,8 +499,6 @@ Proof. verify. Qed.
 
 很烦人的证明，其实lia都能做只是缺pow的性质
 
-关键是
-
 ```coq
 Fixpoint pow2 n :=
   match n with
